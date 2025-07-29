@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Messages - Logistics Management System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-comments me-2"></i>Inter-Facility Messaging</h2>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#sendMessageModal">
+        <i class="fas fa-plus me-2"></i>Send New Message
+    </button>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Recent Messages</h5>
+            </div>
+            <div class="card-body">
+                {% if messages %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>From</th>
+                                <th>To</th>
+                                <th>Message</th>
+                                <th>Priority</th>
+                                <th>Timestamp</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for message in messages %}
+                            <tr>
+                                <td>{{ message.from_facility }}</td>
+                                <td>{{ message.to_facility }}</td>
+                                <td>
+                                    <div style="max-width: 300px; overflow: hidden; text-overflow: ellipsis;">
+                                        {{ message.message }}
+                                    </div>
+                                </td>
+                                <td>
+                                    <span
+                                        class="badge bg-{% if message.priority == 'high' %}danger{% elif message.priority == 'medium' %}warning{% else %}secondary{% endif %}">
+                                        {{ message.priority.title() }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <small>{{ message.created_at }}</small>
+                                </td>
+                                <td>
+                                    <span
+                                        class="badge bg-{% if message.status == 'sent' %}success{% elif message.status == 'delivered' %}info{% else %}secondary{% endif %}">
+                                        {{ message.status.title() }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-comments fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">No messages found</p>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#sendMessageModal">
+                        Send First Message
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Send Message Modal -->
+<div class="modal fade" id="sendMessageModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Send Message</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('send_message') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="from_facility" class="form-label">From Facility</label>
+                        <select class="form-select" id="from_facility" name="from_facility" required>
+                            <option value="">Select facility...</option>
+                            {% for facility in facilities %}
+                            <option value="{{ facility.id }}">{{ facility.name }} ({{ facility.location }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="to_facility" class="form-label">To Facility</label>
+                        <select class="form-select" id="to_facility" name="to_facility" required>
+                            <option value="">Select facility...</option>
+                            {% for facility in facilities %}
+                            <option value="{{ facility.id }}">{{ facility.name }} ({{ facility.location }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="priority" class="form-label">Priority</label>
+                        <select class="form-select" id="priority" name="priority">
+                            <option value="normal">Normal</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="message" class="form-label">Message</label>
+                        <textarea class="form-control" id="message" name="message" rows="4"
+                            placeholder="Enter your message..." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane me-2"></i>Send Message
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

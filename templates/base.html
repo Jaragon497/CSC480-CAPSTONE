@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Logistics Management System{% endblock %}</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+            --light-bg: #ecf0f1;
+        }
+        
+        body {
+            background-color: var(--light-bg);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .navbar {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .sidebar {
+            min-height: calc(100vh - 76px);
+            background: white;
+            border-right: 1px solid #dee2e6;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+        }
+        
+        .main-content {
+            padding: 20px;
+        }
+        
+        .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.08);
+            transition: transform 0.2s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+        }
+        
+        .facility-card {
+            border-left: 4px solid var(--secondary-color);
+        }
+        
+        .facility-card.warning {
+            border-left-color: var(--warning-color);
+        }
+        
+        .facility-card.danger {
+            border-left-color: var(--danger-color);
+        }
+        
+        .metric-badge {
+            font-size: 0.85em;
+            padding: 0.5em 0.8em;
+            border-radius: 20px;
+        }
+        
+        .status-operational { background-color: #d4edda; color: #155724; }
+        .status-maintenance { background-color: #fff3cd; color: #856404; }
+        .status-down { background-color: #f8d7da; color: #721c24; }
+        .status-reduced { background-color: #d1ecf1; color: #0c5460; }
+        
+        .alert-item {
+            border-left: 4px solid;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            border-radius: 0 6px 6px 0;
+        }
+        
+        .alert-critical { border-left-color: var(--danger-color); background-color: #ffeaea; }
+        .alert-warning { border-left-color: var(--warning-color); background-color: #fff8e1; }
+        .alert-info { border-left-color: var(--secondary-color); background-color: #e3f2fd; }
+        
+        .productivity-bar {
+            height: 8px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .productivity-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        
+        .nav-pills .nav-link.active {
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+        }
+        
+        .real-time-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: var(--success-color);
+            border-radius: 50%;
+            margin-right: 5px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .data-unavailable {
+            opacity: 0.6;
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 10px,
+                rgba(0,0,0,.1) 10px,
+                rgba(0,0,0,.1) 20px
+            );
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('dashboard') }}">
+                <i class="fas fa-shipping-fast me-2"></i>
+                Logistics Management System
+            </a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text me-3">
+                    <span class="real-time-indicator"></span>
+                    Real-time Monitoring Active
+                </span>
+                <a class="nav-link" href="#" onclick="refreshData()">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-2 sidebar p-0">
+                <div class="p-3">
+                    <ul class="nav nav-pills flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" 
+                               href="{{ url_for('dashboard') }}">
+                                <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'messages' %}active{% endif %}" 
+                               href="{{ url_for('messages') }}">
+                                <i class="fas fa-comments me-2"></i>Messages
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" onclick="loadRecommendations()">
+                                <i class="fas fa-lightbulb me-2"></i>Recommendations
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" onclick="showWeatherTraffic()">
+                                <i class="fas fa-road me-2"></i>Weather & Highways
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-10 main-content">
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals and additional content -->
+    <div id="dynamicModal" class="modal fade" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">Information</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="modalBody">
+                    <!-- Dynamic content will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Auto-refresh functionality
+        let autoRefresh = true;
+        
+        function refreshData() {
+            if (typeof updateDashboard === 'function') {
+                updateDashboard();
+            } else {
+                location.reload();
+            }
+        }
+        
+        function loadRecommendations() {
+            fetch('/api/recommendations')
+                .then(response => response.json())
+                .then(data => {
+                    let content = '<div class="recommendations-list">';
+                    if (data.length === 0) {
+                        content += '<p class="text-muted">No recommendations at this time.</p>';
+                    } else {
+                        data.forEach(rec => {
+                            const priorityClass = rec.priority === 'high' ? 'danger' : 
+                                                rec.priority === 'medium' ? 'warning' : 'info';
+                            content += `
+                                <div class="alert alert-${priorityClass} mb-3">
+                                    <h6><i class="fas fa-lightbulb me-2"></i>${rec.type.replace('_', ' ').toUpperCase()}</h6>
+                                    <p class="mb-2">${rec.reason}</p>
+                                    ${rec.suggested_alternatives ? 
+                                        `<p><strong>Suggested alternatives:</strong> ${rec.suggested_alternatives.join(', ')}</p>` : 
+                                        `<p><strong>Action:</strong> ${rec.suggested_action}</p>`}
+                                    <small class="text-muted">${rec.estimated_impact}</small>
+                                </div>
+                            `;
+                        });
+                    }
+                    content += '</div>';
+                    
+                    document.getElementById('modalTitle').textContent = 'AI-Powered Recommendations';
+                    document.getElementById('modalBody').innerHTML = content;
+                    new bootstrap.Modal(document.getElementById('dynamicModal')).show();
+                })
+                .catch(error => {
+                    console.error('Error loading recommendations:', error);
+                    alert('Unable to load recommendations. Please try again.');
+                });
+        }
+        
+        function showWeatherTraffic() {
+            const locations = ['Chicago', 'Denver', 'Atlanta'];
+            const routes = ['I-80-Chicago-Denver', 'I-75-Chicago-Atlanta', 'I-10-Phoenix-Miami'];
+            
+            let content = '<div class="weather-traffic-display">';
+            content += '<h6><i class="fas fa-cloud-sun me-2"></i>Weather Information</h6>';
+            content += '<div class="row mb-4">';
+            
+            // Load weather for each location
+            locations.forEach(location => {
+                fetch(`/api/weather/${location}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const weatherDiv = document.getElementById(`weather-${location}`);
+                        if (data.error) {
+                            weatherDiv.innerHTML = `
+                                <div class="text-warning">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    ${data.message}
+                                </div>
+                            `;
+                        } else {
+                            const tempUnit = data.temperature > 50 ? '°F' : '°C';
+                            weatherDiv.innerHTML = `
+                                <strong>${data.conditions}</strong><br>
+                                <small>${data.temperature.toFixed(1)}${tempUnit}, Wind: ${data.wind_speed.toFixed(1)} mph</small>
+                                ${data.alerts.length > 0 ? `<br><span class="text-danger"><i class="fas fa-exclamation-triangle"></i> ${data.alerts.join(', ')}</span>` : ''}
+                            `;
+                        }
+                    });
+                
+                content += `
+                    <div class="col-md-4">
+                        <div class="card mb-2">
+                            <div class="card-body">
+                                <h6><i class="fas fa-map-marker-alt me-1"></i>${location}</h6>
+                                <div id="weather-${location}">Loading...</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            content += '</div>';
+            content += '<h6><i class="fas fa-road me-2"></i>Critical Highway Corridors</h6>';
+            content += '<div class="row">';
+            
+            // Load highway closure data for each critical route
+            routes.forEach((route, index) => {
+                fetch(`/api/traffic/${route}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const trafficDiv = document.getElementById(`traffic-${route}`);
+                        if (data.error) {
+                            trafficDiv.innerHTML = `
+                                <div class="text-warning">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    ${data.message}
+                                </div>
+                            `;
+                        } else {
+                            // Use more appropriate colors for highway status
+                            let statusColor = 'success';
+                            let statusIcon = 'fas fa-check-circle';
+                            
+                            if (data.congestion_level === 'Severe') {
+                                statusColor = 'danger';
+                                statusIcon = 'fas fa-times-circle';
+                            } else if (data.congestion_level === 'Heavy') {
+                                statusColor = 'warning';
+                                statusIcon = 'fas fa-exclamation-circle';
+                            } else if (data.congestion_level === 'Moderate') {
+                                statusColor = 'info';
+                                statusIcon = 'fas fa-info-circle';
+                            }
+                            
+                            trafficDiv.innerHTML = `
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="${statusIcon} text-${statusColor} me-2"></i>
+                                    <span class="badge bg-${statusColor}">${data.congestion_level}</span>
+                                </div>
+                                ${data.incidents.length > 0 ? 
+                                    `<div class="mb-2">
+                                        <strong>Current Issues:</strong><br>
+                                        ${data.incidents.map(incident => 
+                                            `<small class="text-${statusColor}">• ${incident}</small>`
+                                        ).join('<br>')}
+                                     </div>` : 
+                                    '<small class="text-success">• No incidents reported</small><br>'}
+                                ${data.estimated_delay_minutes > 0 ? 
+                                    `<div class="mb-2">
+                                        <strong class="text-danger">Est. Delay: ${data.estimated_delay_minutes} min</strong>
+                                     </div>` : ''}
+                                ${data.alternative_routes.length > 0 ? 
+                                    `<div>
+                                        <strong>Alternatives:</strong><br>
+                                        ${data.alternative_routes.map(alt => 
+                                            `<small class="text-muted">• ${alt}</small>`
+                                        ).join('<br>')}
+                                     </div>` : ''}
+                            `;
+                        }
+                    });
+                
+                content += `
+                    <div class="col-md-4 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6><i class="fas fa-highway me-1"></i>${route.replace('-', ' ')}</h6>
+                                <div id="traffic-${route}">Loading...</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            content += '</div></div>';
+            
+            document.getElementById('modalTitle').textContent = 'Weather & Critical Highway Status';
+            document.getElementById('modalBody').innerHTML = content;
+            new bootstrap.Modal(document.getElementById('dynamicModal')).show();
+        }
+        
+        // Auto-refresh every 2 minutes
+        setInterval(() => {
+            if (autoRefresh) {
+                refreshData();
+            }
+        }, 120000);
+    </script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>
