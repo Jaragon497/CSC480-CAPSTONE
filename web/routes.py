@@ -3,8 +3,8 @@ from dataclasses import asdict
 from database import FacilityDB, MetricsDB, AlertsDB, MessagesDB
 
 # Import both mock and real APIs
-from external_apis import DataService as MockDataService, RecommendationEngine
-from real_apis import get_configured_data_service
+from services.external_apis import DataService as MockDataService, RecommendationEngine
+from services.real_apis import get_configured_data_service
 
 
 def get_data_service():
@@ -25,8 +25,8 @@ def register_routes(app):
         # Get facility summary
         facilities = FacilityDB.get_all_active_facilities()
 
-        # Get recent alerts
-        alerts = AlertsDB.get_active_alerts(10)
+        # Get recent alerts (show more to ensure consistency)
+        alerts = AlertsDB.get_active_alerts(50)
 
         # Get recent messages
         messages = MessagesDB.get_recent_messages(5)
@@ -197,7 +197,7 @@ def register_routes(app):
     def api_alerts():
         """API endpoint for current alerts"""
         try:
-            alerts = AlertsDB.get_active_alerts()
+            alerts = AlertsDB.get_active_alerts(50)  # Get more alerts for API
             return jsonify([dict(alert) for alert in alerts])
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -208,6 +208,16 @@ def register_routes(app):
         try:
             AlertsDB.resolve_alert(alert_id)
             return jsonify({"status": "success"})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/api/sync-alerts", methods=["POST"])
+    def sync_alerts():
+        """Manually sync alerts with current facility data"""
+        try:
+            from services.background_services import data_aggregator
+            data_aggregator.sync_alerts_with_current_data()
+            return jsonify({"status": "success", "message": "Alert synchronization completed"})
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 

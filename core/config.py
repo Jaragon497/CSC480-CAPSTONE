@@ -1,5 +1,4 @@
 import os
-from real_apis import configure_real_apis
 
 
 # Configuration settings
@@ -18,6 +17,7 @@ class Config:
     @classmethod
     def init_apis(cls):
         """Initialize API configuration"""
+        from services.real_apis import configure_real_apis
         configure_real_apis(
             openweather_key=cls.OPENWEATHER_API_KEY,
             tomtom_key=cls.TOMTOM_API_KEY,

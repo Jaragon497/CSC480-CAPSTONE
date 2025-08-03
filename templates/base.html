@@ -225,34 +225,15 @@
             }
         }
         
+        let modalRecommendations = [];
+        let modalCurrentFilter = 'all';
+        
         function loadRecommendations() {
             fetch('/api/recommendations')
                 .then(response => response.json())
                 .then(data => {
-                    let content = '<div class="recommendations-list">';
-                    if (data.length === 0) {
-                        content += '<p class="text-muted">No recommendations at this time.</p>';
-                    } else {
-                        data.forEach(rec => {
-                            const priorityClass = rec.priority === 'high' ? 'danger' : 
-                                                rec.priority === 'medium' ? 'warning' : 'info';
-                            content += `
-                                <div class="alert alert-${priorityClass} mb-3">
-                                    <h6><i class="fas fa-lightbulb me-2"></i>${rec.type.replace('_', ' ').toUpperCase()}</h6>
-                                    <p class="mb-2">${rec.reason}</p>
-                                    ${rec.suggested_alternatives ? 
-                                        `<p><strong>Suggested alternatives:</strong> ${rec.suggested_alternatives.join(', ')}</p>` : 
-                                        `<p><strong>Action:</strong> ${rec.suggested_action}</p>`}
-                                    <small class="text-muted">${rec.estimated_impact}</small>
-                                </div>
-                            `;
-                        });
-                    }
-                    content += '</div>';
-                    
-                    document.getElementById('modalTitle').textContent = 'AI-Powered Recommendations';
-                    document.getElementById('modalBody').innerHTML = content;
-                    new bootstrap.Modal(document.getElementById('dynamicModal')).show();
+                    modalRecommendations = data;
+                    renderModalRecommendations();
                 })
                 .catch(error => {
                     console.error('Error loading recommendations:', error);
@@ -260,9 +241,87 @@
                 });
         }
         
+        function renderModalRecommendations() {
+            // Filter recommendations based on current filter
+            let filteredRecs = modalCurrentFilter === 'all' 
+                ? modalRecommendations 
+                : modalRecommendations.filter(rec => rec.priority === modalCurrentFilter);
+            
+            // Sort by priority (high -> medium -> low) and then by type
+            const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
+            filteredRecs.sort((a, b) => {
+                const priorityDiff = priorityOrder[b.priority] - priorityOrder[a.priority];
+                if (priorityDiff !== 0) return priorityDiff;
+                return a.type.localeCompare(b.type);
+            });
+            
+            let content = `
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">Filter by severity:</span>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button class="btn ${modalCurrentFilter === 'all' ? 'btn-secondary' : 'btn-outline-secondary'}" onclick="filterModalRecommendations('all')">All</button>
+                            <button class="btn ${modalCurrentFilter === 'high' ? 'btn-danger' : 'btn-outline-danger'}" onclick="filterModalRecommendations('high')">High</button>
+                            <button class="btn ${modalCurrentFilter === 'medium' ? 'btn-warning' : 'btn-outline-warning'}" onclick="filterModalRecommendations('medium')">Medium</button>
+                            <button class="btn ${modalCurrentFilter === 'low' ? 'btn-info' : 'btn-outline-info'}" onclick="filterModalRecommendations('low')">Low</button>
+                        </div>
+                    </div>
+                    <hr>
+                </div>
+                <div class="recommendations-list">`;
+            
+            if (filteredRecs.length === 0) {
+                content += '<p class="text-muted">No recommendations match the selected filter.</p>';
+            } else {
+                filteredRecs.forEach(rec => {
+                    const priorityClass = rec.priority === 'high' ? 'danger' : 
+                                        rec.priority === 'medium' ? 'warning' : 'info';
+                    const facilityName = rec.source_facility || rec.location || 'System';
+                    const facilityType = rec.facility_type || '';
+                    // Avoid duplicate "station" or "hub" in display text
+                    const headerText = facilityType && !facilityName.toLowerCase().includes(facilityType.toLowerCase()) 
+                        ? `${facilityName} ${facilityType}` 
+                        : facilityName;
+                    
+                    const iconClass = rec.priority === 'high' ? 'exclamation-triangle' : 
+                                     rec.priority === 'medium' ? 'exclamation-circle' : 'info-circle';
+                    
+                    content += `
+                        <div class="alert alert-${priorityClass} mb-3" data-priority="${rec.priority}">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h6><i class="fas fa-${iconClass} me-2"></i>${headerText} | ${rec.type.replace('_', ' ').toUpperCase()}</h6>
+                                    <p class="mb-2">${rec.reason}</p>
+                                    ${rec.suggested_alternatives ? 
+                                        `<p><strong>Suggested alternatives:</strong> ${rec.suggested_alternatives.join(', ')}</p>` : 
+                                        `<p><strong>Action:</strong> ${rec.suggested_action}</p>`}
+                                    <small class="text-muted">${rec.estimated_impact}</small>
+                                </div>
+                                <span class="badge bg-${priorityClass === 'danger' ? 'danger' : priorityClass === 'warning' ? 'warning' : 'info'} ms-2">${rec.priority.toUpperCase()}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            content += '</div>';
+            
+            document.getElementById('modalTitle').textContent = `AI-Powered Recommendations (${filteredRecs.length})`;
+            document.getElementById('modalBody').innerHTML = content;
+            
+            // Show modal if not already shown
+            if (!document.getElementById('dynamicModal').classList.contains('show')) {
+                new bootstrap.Modal(document.getElementById('dynamicModal')).show();
+            }
+        }
+        
+        function filterModalRecommendations(priority) {
+            modalCurrentFilter = priority;
+            renderModalRecommendations();
+        }
+        
         function showWeatherTraffic() {
             const locations = ['Chicago', 'Denver', 'Atlanta'];
-            const routes = ['I-80-Chicago-Denver', 'I-75-Chicago-Atlanta', 'I-10-Phoenix-Miami'];
+            const routes = ['I-80 Chicago↔Denver', 'I-75 Chicago↔Atlanta', 'I-10 Phoenix↔Miami'];
             
             let content = '<div class="weather-traffic-display">';
             content += '<h6><i class="fas fa-cloud-sun me-2"></i>Weather Information</h6>';
@@ -364,11 +423,14 @@
                         }
                     });
                 
+                // Format the route display: "I-80 Chicago↔Denver" -> "I-80 | Chicago↔Denver"
+                const displayRoute = route.replace(/^(I-\d+)\s+/, '$1 | ');
+                
                 content += `
                     <div class="col-md-4 mb-3">
                         <div class="card">
                             <div class="card-body">
-                                <h6><i class="fas fa-highway me-1"></i>${route.replace('-', ' ')}</h6>
+                                <h6><i class="fas fa-highway me-1"></i>${displayRoute}</h6>
                                 <div id="traffic-${route}">Loading...</div>
                             </div>
                         </div>

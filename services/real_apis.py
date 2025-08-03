@@ -3,8 +3,9 @@ import requests
 import json
 from typing import Optional, List, Dict, Any
 from dataclasses import asdict
-from models import WeatherData, TrafficData, FacilityMetrics
+from core.models import WeatherData, TrafficData, FacilityMetrics
 import time
+import random
 
 
 class NationalWeatherServiceAPI:
@@ -165,9 +166,9 @@ class HighwayClosureAPI:
         self.timeout = 10
         # Major logistics corridors - focusing on 3 most critical routes
         self.major_routes = {
-            "I-80-Chicago-Denver": "I-80 Chicago → Denver Corridor",
-            "I-75-Chicago-Atlanta": "I-75 Chicago → Atlanta Corridor",
-            "I-10-Phoenix-Miami": "I-10 Phoenix → Miami Corridor",
+            "I-80 Chicago↔Denver": "I-80 Chicago → Denver Corridor",
+            "I-75 Chicago↔Atlanta": "I-75 Chicago → Atlanta Corridor",
+            "I-10 Phoenix↔Miami": "I-10 Phoenix → Miami Corridor",
         }
 
     def get_highway_closures(self, route_id: str) -> Optional[TrafficData]:
@@ -386,7 +387,7 @@ def get_configured_data_service():
         return RealDataService(REAL_API_CONFIG["openweather_api_key"])
     else:
         # Import and return mock service
-        from external_apis import DataService
+        from .external_apis import DataService
 
         return DataService()
 

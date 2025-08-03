@@ -55,11 +55,25 @@
     <div class="col-lg-8">
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-map-marker-alt me-2"></i>
-                    Facility Status
-                    <span class="real-time-indicator"></span>
-                </h5>
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-map-marker-alt me-2"></i>
+                        Facility Status
+                        <span class="real-time-indicator"></span>
+                    </h5>
+                    <div class="input-group" style="width: 300px;">
+                        <input type="text" id="facilitySearch" class="form-control form-control-sm" 
+                               placeholder="Search facilities..." onkeyup="filterFacilities()">
+                        <span class="input-group-text">
+                            <i class="fas fa-search"></i>
+                        </span>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-outline-secondary me-2" onclick="filterByType('all')">All</button>
+                    <button class="btn btn-sm btn-outline-primary me-2" onclick="filterByType('hub')">Hubs</button>
+                    <button class="btn btn-sm btn-outline-success" onclick="filterByType('station')">Stations</button>
+                </div>
             </div>
             <div class="card-body">
                 <div id="facilitiesContainer">
@@ -146,18 +160,40 @@
 
     <!-- Alerts and Messages -->
     <div class="col-lg-4">
+        <!-- Critical Recommendations -->
+        <div class="card mb-4" style="cursor: pointer;" onclick="loadRecommendations()">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Critical Recommendations
+                    <span class="badge bg-warning" id="criticalRecsCount">--</span>
+                </h5>
+                <small class="text-muted">Click to view all recommendations</small>
+            </div>
+            <div class="card-body" style="max-height: 250px; overflow-y: auto;">
+                <div id="criticalRecommendations">
+                    <p class="text-muted">Loading recommendations...</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Active Alerts -->
         <div class="card mb-4">
             <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-bell me-2"></i>
-                    Active Alerts
-                    {% if alerts|length > 0 %}
-                    <span class="badge bg-danger">{{ alerts|length }}</span>
-                    {% endif %}
-                </h5>
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bell me-2"></i>
+                        Active Alerts
+                        {% if alerts|length > 0 %}
+                        <span class="badge bg-danger">{{ alerts|length }}</span>
+                        {% endif %}
+                    </h5>
+                    <button class="btn btn-sm btn-outline-primary" onclick="syncAlerts()">
+                        <i class="fas fa-sync-alt"></i> Sync
+                    </button>
+                </div>
             </div>
-            <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+            <div class="card-body" style="max-height: 250px; overflow-y: auto;">
                 <div id="alertsContainer">
                     {% if alerts %}
                         {% for alert in alerts %}
@@ -223,6 +259,54 @@
 
 {% block scripts %}
 <script>
+function filterFacilities() {
+    const searchTerm = document.getElementById('facilitySearch').value.toLowerCase();
+    const facilityCards = document.querySelectorAll('.facility-card');
+    
+    facilityCards.forEach(card => {
+        const facilityName = card.querySelector('h6 a').textContent.toLowerCase();
+        const facilityLocation = card.querySelector('.text-muted').textContent.toLowerCase();
+        
+        if (facilityName.includes(searchTerm) || facilityLocation.includes(searchTerm)) {
+            card.style.display = '';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
+function filterByType(type) {
+    const facilityCards = document.querySelectorAll('.facility-card');
+    const buttons = document.querySelectorAll('[onclick^="filterByType"]');
+    
+    // Update button states
+    buttons.forEach(btn => {
+        btn.classList.remove('btn-secondary', 'btn-primary', 'btn-success');
+        if (type === 'all') btn.classList.add('btn-outline-secondary');
+        else if (type === 'hub') btn.classList.add('btn-outline-primary');
+        else btn.classList.add('btn-outline-success');
+    });
+    
+    // Update active button
+    event.target.classList.remove('btn-outline-secondary', 'btn-outline-primary', 'btn-outline-success');
+    if (type === 'all') event.target.classList.add('btn-secondary');
+    else if (type === 'hub') event.target.classList.add('btn-primary');
+    else event.target.classList.add('btn-success');
+    
+    facilityCards.forEach(card => {
+        const facilityType = card.querySelector('.badge').textContent.toLowerCase();
+        
+        if (type === 'all' || facilityType.includes(type)) {
+            card.style.display = '';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+    
+    // Clear search when filtering by type
+    document.getElementById('facilitySearch').value = '';
+}
+
 function updateDashboard() {
     // Update facilities data
     fetch('/api/facilities')
@@ -236,7 +320,6 @@ function updateDashboard() {
             }
             
             // Update facility cards (simplified - in production would update individual elements)
-            console.log('Facilities data updated:', data.length, 'facilities');
         })
         .catch(error => console.error('Error updating facilities:', error));
     
@@ -244,9 +327,66 @@ function updateDashboard() {
     fetch('/api/alerts')
         .then(response => response.json())
         .then(data => {
-            console.log('Alerts updated:', data.length, 'active alerts');
+            // Update alert count in KPI section
+            const alertCountElement = document.querySelector('.col-md-3:nth-child(2) h3');
+            if (alertCountElement) {
+                alertCountElement.textContent = data.length;
+            }
+            
+            // Update alerts container if needed
+            updateAlertsDisplay(data);
         })
         .catch(error => console.error('Error updating alerts:', error));
+        
+    // Update critical recommendations
+    updateCriticalRecommendations();
+}
+
+function updateCriticalRecommendations() {
+    fetch('/api/recommendations')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('criticalRecommendations');
+            const countBadge = document.getElementById('criticalRecsCount');
+            
+            // Filter for high priority recommendations only for mini view
+            const criticalRecs = data.filter(rec => rec.priority === 'high').slice(0, 3);
+            
+            countBadge.textContent = criticalRecs.length;
+            
+            if (criticalRecs.length === 0) {
+                container.innerHTML = '<p class="text-muted">No critical recommendations</p>';
+            } else {
+                let content = '';
+                criticalRecs.forEach(rec => {
+                    const facilityName = rec.source_facility || rec.location || 'System';
+                    const facilityType = rec.facility_type || '';
+                    // Avoid duplicate "station" or "hub" in display text
+                    const headerText = facilityType && !facilityName.toLowerCase().includes(facilityType.toLowerCase()) 
+                        ? `${facilityName} ${facilityType}` 
+                        : facilityName;
+                    
+                    content += `
+                        <div class="alert alert-danger alert-sm mb-2 p-2">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong class="small">${headerText}</strong><br>
+                                    <small>${rec.type.replace('_', ' ').toUpperCase()}</small><br>
+                                    <small class="text-muted">${rec.reason}</small>
+                                </div>
+                                <i class="fas fa-exclamation-triangle text-danger"></i>
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = content;
+            }
+        })
+        .catch(error => {
+            console.error('Error updating recommendations:', error);
+            document.getElementById('criticalRecommendations').innerHTML = 
+                '<p class="text-muted">Error loading recommendations</p>';
+        });
 }
 
 function resolveAlert(alertId) {
@@ -265,9 +405,108 @@ function resolveAlert(alertId) {
                 alertElement.style.opacity = '0.5';
                 setTimeout(() => alertElement.remove(), 500);
             }
+            // Update the alert count badge
+            updateAlertCount();
         }
     })
     .catch(error => console.error('Error resolving alert:', error));
+}
+
+function syncAlerts() {
+    const syncButton = document.querySelector('[onclick="syncAlerts()"]');
+    const originalContent = syncButton.innerHTML;
+    
+    // Show loading state
+    syncButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+    syncButton.disabled = true;
+    
+    fetch('/api/sync-alerts', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // Refresh the page to show updated alerts
+            location.reload();
+        } else {
+            console.error('Sync failed:', data.error);
+            alert('Alert synchronization failed. Please try again.');
+        }
+    })
+    .catch(error => {
+        console.error('Error syncing alerts:', error);
+        alert('Error syncing alerts. Please try again.');
+    })
+    .finally(() => {
+        // Restore button state
+        syncButton.innerHTML = originalContent;
+        syncButton.disabled = false;
+    });
+}
+
+function updateAlertCount() {
+    fetch('/api/alerts')
+        .then(response => response.json())
+        .then(alerts => {
+            // Update KPI badge
+            const kpiCount = document.querySelector('.col-md-3:nth-child(2) h3');
+            if (kpiCount) {
+                kpiCount.textContent = alerts.length;
+            }
+            
+            // Update Active Alerts badge
+            const alertBadge = document.querySelector('.card-header h5 .badge');
+            if (alerts.length > 0) {
+                if (alertBadge) {
+                    alertBadge.textContent = alerts.length;
+                } else {
+                    // Add badge if it doesn't exist
+                    const headerH5 = document.querySelector('.card-header h5');
+                    const newBadge = document.createElement('span');
+                    newBadge.className = 'badge bg-danger';
+                    newBadge.textContent = alerts.length;
+                    headerH5.appendChild(document.createTextNode(' '));
+                    headerH5.appendChild(newBadge);
+                }
+            } else if (alertBadge) {
+                alertBadge.remove();
+            }
+        })
+        .catch(error => console.error('Error updating alert count:', error));
+}
+
+function updateAlertsDisplay(alerts) {
+    const alertsContainer = document.getElementById('alertsContainer');
+    if (!alertsContainer) return;
+    
+    if (alerts.length === 0) {
+        alertsContainer.innerHTML = '<p class="text-muted">No active alerts</p>';
+        return;
+    }
+    
+    let alertsHTML = '';
+    alerts.forEach(alert => {
+        alertsHTML += `
+            <div class="alert-item alert-${alert.severity}" data-alert-id="${alert.id}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <strong>${alert.facility_name}</strong><br>
+                        <small>${alert.message}</small><br>
+                        <small class="text-muted">${alert.created_at}</small>
+                    </div>
+                    <button class="btn btn-sm btn-outline-secondary" 
+                            onclick="resolveAlert(${alert.id})">
+                        <i class="fas fa-check"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    alertsContainer.innerHTML = alertsHTML;
 }
 
 // Initialize dashboard

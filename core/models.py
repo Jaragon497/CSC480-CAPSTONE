@@ -41,6 +41,7 @@ class FacilityMetrics:
     productivity_rate: float
     equipment_status: str
     downtime_minutes: int = 0
+    delivery_timeliness: float = 95.0  # Percentage of on-time deliveries
     timestamp: Optional[str] = None
 
 @dataclass
